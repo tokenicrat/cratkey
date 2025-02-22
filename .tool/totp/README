@@ -1,0 +1,22 @@
+CRATKEY
+
+    python totp.py [add | delete | modify | help]
+
+You will need to install modules required according to requirements.txt in 
+root directory first to use TOTP.
+
+If no argument is provided, all TOTPs are shown by default.
+
+add:
+
+    Add a new item.
+    If no database exists, a new one will be created. TOTP key is required, 
+    and currently QR code has not been supported.
+
+delete:
+
+    Remove an item by name.
+
+modify:
+
+    Basically remove an item and create another one with the same name.
