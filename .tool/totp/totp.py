@@ -65,6 +65,31 @@ def custom_decrypt(data: str, key: bytes) -> str:
     decrypted_data = unpad(cipher.decrypt(ciphertext), AES.block_size)
     return decrypted_data.decode()
 
+def get_master_password(data, field):
+    """
+    If data is empty, prompt user to create a new master password.
+    If data is populated, prompt user to enter the master password and verify it
+    by decrypting an existing entry in the specified field.
+    """
+    if not data:
+        while True:
+            pw1 = custom_getpass("Create new master password: ")
+            pw2 = custom_getpass("Retype master password: ")
+            if pw1 == "" or pw1 != pw2:
+                print(f"{COLOR_INFO}Passwords do not match or cannot be empty. Try again.{COLOR_RESET}")
+            else:
+                return pw1
+    else:
+        while True:
+            master_password = custom_getpass("Master password: ")
+            key_hash = custom_sha256(master_password)
+            sample_entry = next(iter(data.values()))
+            try:
+                custom_decrypt(sample_entry[field], key_hash)
+                return master_password
+            except Exception:
+                print(f"{COLOR_INFO}Master password incorrect. Please try again.{COLOR_RESET}")
+
 def load_data():
     if not os.path.exists(TOTP_FILE):
         save_data({})
@@ -85,7 +110,8 @@ def add_entry():
     key = input("TOTP secret key: ")
     digit = input("Digits (default 6): ") or "6"
     period = input("Period (default 30s): ") or "30"
-    master_password = custom_getpass("Master password: ")
+    # use new master password function; field name for totp file is "KEY"
+    master_password = get_master_password(data, "KEY")
     key_hash = custom_sha256(master_password)
     data[name] = {"KEY": custom_encrypt(key, key_hash), "DIGIT": digit, "PERIOD": period}
     save_data(data)
@@ -108,7 +134,8 @@ def generate_totp():
     data = load_data()
     if not data:
         return
-    master_password = custom_getpass("Master password: ")
+    # prompt and verify master password using the "KEY" field
+    master_password = get_master_password(data, "KEY")
     key_hash = custom_sha256(master_password)
     old_settings = termios.tcgetattr(sys.stdin)
     try:
@@ -120,10 +147,14 @@ def generate_totp():
             print(f"{COLOR_HEADER}| Service         | TOTP Code  | Expires in |{COLOR_RESET}")
             print(f"{COLOR_HEADER}+-----------------+------------+------------+{COLOR_RESET}")
             for name, details in data.items():
-                decrypted_key = custom_decrypt(details["KEY"], key_hash)
-                if decrypted_key:
-                    totp = pyotp.TOTP(decrypted_key, digits=int(details["DIGIT"]), interval=int(details["PERIOD"]))
-                    print(f"{COLOR_SUCCESS}| {name.ljust(15)} | {totp.now().ljust(10)} | {str(int(totp.interval - (time.time() % totp.interval))).ljust(10)} |{COLOR_RESET}")
+                try:
+                    decrypted_key = custom_decrypt(details["KEY"], key_hash)
+                except Exception as e:
+                    print(f"{COLOR_INFO}Failed to decrypt a key for service {name}. Check your master password.{COLOR_RESET}")
+                    continue
+                totp = pyotp.TOTP(decrypted_key, digits=int(details["DIGIT"]), interval=int(details["PERIOD"]))
+                expires_in = str(int(totp.interval - (time.time() % totp.interval)))
+                print(f"{COLOR_SUCCESS}| {name.ljust(15)} | {totp.now().ljust(10)} | {expires_in.ljust(10)} |{COLOR_RESET}")
             print(f"{COLOR_HEADER}+-----------------+------------+------------+{COLOR_RESET}")
             time.sleep(1)
             if is_key_pressed() and sys.stdin.read(1).lower() == 'q':

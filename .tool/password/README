@@ -1,0 +1,27 @@
+CRATKEY
+
+    python password.py [add | delete | modify | get | gen] (length)
+
+You will need to install modules required according to requirements.txt in 
+root directory first to use Password.
+
+add:
+
+    Add a new item.
+    If no database exists, a new one will be created.
+
+delete:
+
+    Remove an item by name.
+
+modify:
+
+    Basically remove an item and create another one with the same name.
+
+get:
+
+    Retrieve a code you have already added.
+
+gen:
+
+    Length required. Generate a new password of a given length.

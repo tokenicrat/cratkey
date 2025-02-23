@@ -1,6 +1,6 @@
 CRATKEY
 
-    python totp.py [add | delete | modify | help]
+    python totp.py [add | delete | modify]
 
 You will need to install modules required according to requirements.txt in 
 root directory first to use TOTP.

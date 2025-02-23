@@ -62,6 +62,32 @@ def custom_decrypt(data: str, key: bytes) -> str:
     decrypted_data = unpad(cipher.decrypt(ciphertext), AES.block_size)
     return decrypted_data.decode()
 
+def get_master_password(data, field):
+    """
+    If data is empty, prompt user to create a new master password.
+    If data is populated, prompt user to enter the master password and verify it
+    by decrypting an existing entry in the specified field.
+    """
+    if not data:
+        while True:
+            pw1 = custom_getpass("Create new master password: ")
+            pw2 = custom_getpass("Retype master password: ")
+            if pw1 == "" or pw1 != pw2:
+                print(f"{COLOR_INFO}Passwords do not match or cannot be empty. Try again.{COLOR_RESET}")
+            else:
+                return pw1
+    else:
+        while True:
+            master_password = custom_getpass("Master password: ")
+            key_hash = custom_sha256(master_password)
+            sample_entry = next(iter(data.values()))
+            try:
+                # Try decrypting to verify the password
+                custom_decrypt(sample_entry[field], key_hash)
+                return master_password
+            except Exception:
+                print(f"{COLOR_INFO}Master password incorrect. Please try again.{COLOR_RESET}")
+
 def load_data():
     if not os.path.exists(PASSWORD_FILE):
         save_data({})
@@ -81,7 +107,8 @@ def add_entry():
     name = input("Service name: ")
     username = input("Username: ")
     password = input("Password: ")
-    master_password = custom_getpass("Master password: ")
+    # use the new master password function; field name for password file is "PASSWORD"
+    master_password = get_master_password(data, "PASSWORD")
     key_hash = custom_sha256(master_password)
     data[name] = {"USERNAME": username, "PASSWORD": custom_encrypt(password, key_hash)}
     save_data(data)
@@ -107,9 +134,14 @@ def retrieve_entry():
         print(f"{COLOR_SUCCESS}- {name}{COLOR_RESET}")
     name = input("Service name to retrieve: ")
     if name in data:
-        master_password = custom_getpass("Master password: ")
+        # use the new function to prompt and verify master password
+        master_password = get_master_password(data, "PASSWORD")
         key_hash = custom_sha256(master_password)
-        decrypted_password = custom_decrypt(data[name]["PASSWORD"], key_hash)
+        try:
+            decrypted_password = custom_decrypt(data[name]["PASSWORD"], key_hash)
+        except Exception as e:
+            print(f"{COLOR_INFO}Failed to decrypt. Possibly wrong master password.{COLOR_RESET}")
+            return
         print(f"{COLOR_SUCCESS}Username: {data[name]['USERNAME']}{COLOR_RESET}")
         print(f"{COLOR_SUCCESS}Password: {decrypted_password}{COLOR_RESET}")
     else:
